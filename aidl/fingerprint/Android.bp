@@ -38,6 +38,17 @@ cc_binary {
     ],
 }
 
+cc_library_static {
+    name: "libudfps_extension.xiaomi",
+    srcs: ["UdfpsExtension.cpp"],
+    include_dirs: [
+        "frameworks/native/services/surfaceflinger/CompositionEngine/include"
+    ],
+    header_libs: [
+        "generated_kernel_headers",
+    ],
+}
+
 sysprop_library {
     name: "android.hardware.biometrics.fingerprint.XiaomiProps",
     srcs: ["fingerprint.sysprop"],
