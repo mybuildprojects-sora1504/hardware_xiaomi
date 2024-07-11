@@ -8,12 +8,12 @@ package {
 }
 
 cc_binary {
-    name: "android.hardware.biometrics.fingerprint-service.example",
+    name: "android.hardware.biometrics.fingerprint-service.xiaomi",
     vendor: true,
     relative_install_path: "hw",
     local_include_dirs: ["include"],
-    init_rc: [ "fingerprint-example.rc" ],
-    vintf_fragments: [ "fingerprint-example.xml" ],
+    init_rc: [ "fingerprint-xiaomi.rc" ],
+    vintf_fragments: [ "fingerprint-xiaomi.xml" ],
     srcs: [
         "FakeLockoutTracker.cpp",
         "FakeFingerprintEngine.cpp",
@@ -36,12 +36,12 @@ cc_binary {
         "android.hardware.biometrics.common.config",
     ],
     static_libs: [
-        "libandroid.hardware.biometrics.fingerprint.VirtualProps",
+        "libandroid.hardware.biometrics.fingerprint.XiaomiProps",
     ],
 }
 
 sysprop_library {
-    name: "android.hardware.biometrics.fingerprint.VirtualProps",
+    name: "android.hardware.biometrics.fingerprint.XiaomiProps",
     srcs: ["fingerprint.sysprop"],
     property_owner: "Vendor",
     vendor: true,
