@@ -6,6 +6,7 @@
  */
 
 #include "Fingerprint.h"
+#include "LegacyFingerprint.h"
 #include "Session.h"
 
 #include <android-base/properties.h>
@@ -14,6 +15,20 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
+
+namespace {
+
+typedef struct fingerprint_hal {
+    const char* class_name;
+    const bool is_udfps;
+} fingerprint_hal_t;
+
+static const fingerprint_hal_t kModules[] = {
+        {"fpc", false},        {"fpc_fod", true}, {"goodix", false}, {"goodix_fod", true},
+        {"goodix_fod6", true}, {"silead", false}, {"syna", true},
+};
+
+}  // anonymous namespace
 
 using namespace ::android::fingerprint::virt;
 
@@ -33,7 +48,7 @@ constexpr char SW_VERSION[] = "vendor/version/revision";
 
 }  // namespace
 
-Fingerprint::Fingerprint() : mWorker(MAX_WORKER_QUEUE_SIZE) {
+Fingerprint::Fingerprint() : mWorker(MAX_WORKER_QUEUE_SIZE), mDevice(nullptr), mIsUdfps(false) {
     std::string sensorTypeProp = Fingerprint::cfg().get<std::string>("type");
     if (sensorTypeProp == "" || sensorTypeProp == "default" || sensorTypeProp == "rear") {
         mSensorType = FingerprintSensorType::REAR;
@@ -52,6 +67,61 @@ Fingerprint::Fingerprint() : mWorker(MAX_WORKER_QUEUE_SIZE) {
     }
     LOG(INFO) << "sensorTypeProp:" << sensorTypeProp;
     LOG(INFO) << "ro.product.name=" << ::android::base::GetProperty("ro.product.name", "UNKNOWN");
+
+    for (auto& [class_name, is_udfps] : kModules) {
+        mDevice = openHal(class_name.c_str());
+        if (!mDevice) {
+            ALOGE("Can't open HAL module, class %s", class_name.c_str());
+            continue;
+        }
+
+        ALOGI("Opened fingerprint HAL, class %s", class_name.c_str());
+        mIsUdfps = is_udfps;
+        break;
+    }
+
+    if (!mDevice) {
+        ALOGE("Can't open any HAL module");
+    }
+}
+
+fingerprint_device_t* Fingerprint::openHal(const char* class_name) {
+    const hw_module_t* hw_mdl = nullptr;
+
+    ALOGD("Opening fingerprint hal library...");
+    if (hw_get_module_by_class(FINGERPRINT_HARDWARE_MODULE_ID, class_name, &hw_mdl) != 0) {
+        ALOGE("Can't open fingerprint HW Module");
+        return nullptr;
+    }
+
+    if (!hw_mdl) {
+        ALOGE("No valid fingerprint module");
+        return nullptr;
+    }
+
+    auto module = reinterpret_cast<const fingerprint_module_t*>(hw_mdl);
+    if (!module->common.methods->open) {
+        ALOGE("No valid open method");
+        return nullptr;
+    }
+
+    hw_device_t* device = nullptr;
+    if (module->common.methods->open(hw_mdl, nullptr, &device) != 0) {
+        ALOGE("Can't open fingerprint methods");
+        return nullptr;
+    }
+
+    auto fp_device = reinterpret_cast<fingerprint_device_t*>(device);
+    if (fp_device->set_notify(fp_device, Fingerprint::notify) != 0) {
+        ALOGE("Can't register fingerprint module callback");
+        return nullptr;
+    }
+
+    return fp_device;
+}
+
+Return<bool> Fingerprint::isUdfps(uint32_t /*sensorId*/) {
+    return mIsUdfps;
 }
 
 ndk::ScopedAStatus Fingerprint::getSensorProps(std::vector<SensorProps>* out) {

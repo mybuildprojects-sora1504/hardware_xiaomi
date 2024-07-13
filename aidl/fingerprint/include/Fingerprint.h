@@ -46,11 +46,15 @@ class Fingerprint : public BnFingerprint {
     void onHelp(int);
     void onSimFingerDown();
     void clearConfigSysprop();
+    fingerprint_device_t* openHal(const char* class_name);
 
     std::unique_ptr<FakeFingerprintEngine> mEngine;
     WorkerThread mWorker;
     std::shared_ptr<Session> mSession;
     FingerprintSensorType mSensorType;
+
+    fingerprint_device_t* mDevice;
+    bool mIsUdfps;
 };
 
 }  // namespace aidl::android::hardware::biometrics::fingerprint
